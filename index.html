@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ORBITA - FULL VERSION</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        :root { --bg: #0f0c29; --panel: rgba(255, 255, 255, 0.1); --accent: #ffd700; }
+        body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: white; font-family: 'Pretendard', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; user-select: none; -webkit-user-select: none; }
+        
+        .c-red { background: linear-gradient(45deg, #ff416c, #ff4b2b); }
+        .c-blue { background: linear-gradient(45deg, #2193b0, #6dd5ed); }
+        .c-green { background: linear-gradient(45deg, #56ab2f, #a8e063); }
+        .c-purple { background: linear-gradient(45deg, #834d9b, #d04ed6); }
+
+        .screen { display: none; width: 100%; max-width: 600px; padding: 15px; box-sizing: border-box; flex-direction: column; align-items: center; }
+        .active { display: flex; }
+        
+        .card-box { background: var(--panel); border-radius: 15px; padding: 20px; width: 100%; margin-bottom: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.2); }
+        .btn { width: 100%; padding: 12px; background: var(--accent); color: #000; font-weight: bold; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+        .btn-sub { background: #444; color: #ccc; } 
+        .btn:disabled { background: #555; color: #888; cursor: not-allowed; }
+
+        .track-container { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin: 20px 0; width: 100%; }
+        .track-cell { width: 40px; height: 50px; background: rgba(0,0,0,0.3); border: 1px solid #555; border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; font-size: 0.8rem; padding-top: 2px; position: relative; }
+        .track-cell.plus { background: rgba(255, 255, 255, 0.1); border-color: #888; }
+        .planet-token { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.8); margin-top: 2px; }
+        
+        .hand-container { display: flex; overflow-x: auto; gap: -10px; padding: 10px 0; width: 100%; height: 100px; justify-content: center; }
+        .my-card { width: 50px; height: 80px; border-radius: 8px; border: 2px solid #fff; flex-shrink: 0; margin-right: 5px; cursor: pointer; transition: transform 0.2s; position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; text-shadow: 0 1px 2px #000; }
+        .my-card.selected { transform: translateY(-15px); border-color: var(--accent); z-index: 10; box-shadow: 0 0 15px var(--accent); }
+        .my-card.disabled { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
+
+        .score-board { display: flex; gap: 10px; font-size: 0.8rem; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="authScreen" class="screen active">
+        <div class="card-box">
+            <h1 style="color:var(--accent);">ORBITA</h1>
+            <p>행성 궤도 전략 게임</p>
+            <input type="text" id="nick" placeholder="닉네임" style="width:90%; padding:10px; margin:5px; background:#222; border:1px solid #444; color:#fff; border-radius:5px;">
+            <input type="email" id="email" placeholder="이메일" style="width:90%; padding:10px; margin:5px; background:#222; border:1px solid #444; color:#fff; border-radius:5px;">
+            <input type="password" id="pw" placeholder="비밀번호" style="width:90%; padding:10px; margin:5px; background:#222; border:1px solid #444; color:#fff; border-radius:5px;">
+            <button class="btn" onclick="authFunc('login')">입장하기</button>
+            <button class="btn" onclick="authFunc('signup')" style="background:#444; color:#fff;">회원가입</button>
+        </div>
+    </div>
+
+    <div id="lobbyScreen" class="screen">
+        <div class="card-box">
+            <h2>대기실</h2>
+            <p><span id="myNickDisplay"></span>님 환영합니다!</p>
+            
+            <button class="btn" onclick="startAI()">🤖 AI와 연습하기</button>
+            <button class="btn" onclick="findMatch()" style="background:var(--accent); color:#000;">⚔️ 사람과 대결하기</button>
+            <button class="btn btn-sub" onclick="firebase.auth().signOut()">로그아웃</button>
+        </div>
+    </div>
+
+    <div id="waitScreen" class="screen">
+        <div class="card-box">
+            <h2>매칭 중...</h2>
+            <div style="font-size:2rem;">🔭</div>
+            <p>상대를 기다리고 있습니다.</p>
+            <button class="btn btn-sub" onclick="cancelMatch()">취소</button>
+        </div>
+    </div>
+
+    <div id="gameScreen" class="screen">
+        <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span id="oppName" style="color:#aaa;">상대방</span>
+            <span id="oppHandCnt" style="background:#444; padding:2px 8px; border-radius:4px; font-size:0.8rem;">카드 14장</span>
+        </div>
+        
+        <div class="track-container" id="track"></div>
+        <div id="gameMsg" style="height:30px; color:var(--accent); font-weight:bold; text-align:center; margin:5px 0;">게임 시작!</div>
+
+        <div style="width:100%; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px; margin-top:auto;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span id="myName" style="font-weight:bold;">나</span>
+                <div class="score-board" id="myScoreBoard"></div>
+            </div>
+            <div class="hand-container" id="myHand"></div>
+            <button id="playBtn" class="btn" onclick="playCards()" disabled>카드 내기</button>
+        </div>
+        <button class="btn btn-sub" onclick="quitGame()" style="margin-top:20px; font-size:0.8rem;">나가기</button>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyBZZuQHXYsbbJA3L1L8-yFSfbw1w15p3NE", authDomain: "rubigs.firebaseapp.com", databaseURL: "https://rubigs-default-rtdb.firebaseio.com", projectId: "rubigs", appId: "1:175818594996:web:2ec5f57abe5f5a20d3d5e1" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth(), db = firebase.database();
+
+        let myUid = "", myNick = "";
+        let battleId = null, myRole = "", isOnline = false;
+        let gameState = null;
+        let selectedIndices = [];
+
+        const COLORS = ['c-red', 'c-blue', 'c-green', 'c-purple'];
+        const PLANET_NAMES = ['🔴', '🔵', '🟢', '🟣'];
+
+        auth.onAuthStateChanged(u => {
+            if(u) { myUid = u.uid; db.ref(`users/${u.uid}`).once('value', s => { myNick = s.val()?.nickname || "Player"; document.getElementById('myNickDisplay').innerText = myNick; show('lobbyScreen'); }); }
+            else show('authScreen');
+        });
+        function authFunc(type) {
+            const e=document.getElementById('email').value, p=document.getElementById('pw').value, n=document.getElementById('nick').value;
+            if(type==='signup') auth.createUserWithEmailAndPassword(e,p).then(r=>db.ref(`users/${r.user.uid}`).set({nickname:n}));
+            else auth.signInWithEmailAndPassword(e,p).catch(e=>alert(e.message));
+        }
+
+        // --- AI 모드 ---
+        function startAI() {
+            isOnline = false; battleId = "local_ai"; myRole = 'p1';
+            const initDeck = shuffleDeck();
+            
+            // 로컬 상태 초기화
+            gameState = {
+                p1: { name: myNick, hand: initDeck.slice(0,14), collected: [0,0,0,0] },
+                p2: { name: "AI 봇", hand: initDeck.slice(14,28), collected: [0,0,0,0] },
+                planets: [0,0,0,0],
+                turn: 'p1', roundStartPlayer: 'p1', roundState: 'waiting_p1',
+                currentRoundCards: { p1: null, p2: null },
+                winner: null
+            };
+            
+            show('gameScreen'); renderTrack(); updateView();
+        }
+
+        // --- 온라인 매칭 ---
+        function findMatch() {
+            isOnline = true; show('waitScreen');
+            const qRef = db.ref('orbita_real_queue');
+            qRef.transaction(c => c===null ? {uid:myUid, name:myNick, mid:null} : c, (e, comm, s) => {
+                if(comm && s.val().uid === myUid) {
+                    const l = qRef.on('value', snap => {
+                        if(snap.val()?.mid) { qRef.off(); qRef.set(null); joinGame(snap.val().mid, 'p1'); }
+                    });
+                } else if(s.val().uid !== myUid) {
+                    const opp = s.val(); const mid = db.ref('orbita_real_battles').push().key;
+                    const deck = shuffleDeck();
+                    db.ref(`orbita_real_battles/${mid}`).set({
+                        p1: { uid:opp.uid, name:opp.name, hand: deck.slice(0,14), collected: [0,0,0,0] },
+                        p2: { uid:myUid, name:myNick, hand: deck.slice(14,28), collected: [0,0,0,0] },
+                        planets: [0,0,0,0], turn: 'p1', roundStartPlayer: 'p1', roundState: 'waiting_p1',
+                        currentRoundCards: { p1: null, p2: null }, winner: null
+                    }).then(() => qRef.update({mid: mid}).then(() => joinGame(mid, 'p2')));
+                }
+            });
+        }
+
+        function joinGame(mid, role) {
+            battleId = mid; myRole = role; show('gameScreen'); renderTrack();
+            db.ref(`orbita_real_battles/${mid}`).on('value', s => {
+                gameState = s.val(); if(!gameState) return;
+                if(gameState.winner) endGame(gameState.winner, gameState.winReason);
+                else updateView();
+            });
+        }
+        function cancelMatch() { db.ref('orbita_real_queue').transaction(c=>(c?.uid===myUid?null:c)); show('lobbyScreen'); }
+
+        // --- 공통 게임 로직 ---
+        function updateView() {
+            const me = gameState[myRole];
+            const oppRole = myRole==='p1'?'p2':'p1';
+            const opp = gameState[oppRole];
+
+            document.getElementById('myName').innerText = `나 (${me.name})`;
+            document.getElementById('oppName').innerText = opp.name;
+            document.getElementById('oppHandCnt').innerText = `남은 카드: ${opp.hand ? opp.hand.length : 0}장`;
+            
+            let scoreHTML = "";
+            me.collected.forEach((cnt, idx) => { if(cnt>0) scoreHTML += `<span class="${COLORS[idx]}" style="padding:2px 5px; border-radius:3px; margin-right:3px;">${cnt}</span>`; });
+            document.getElementById('myScoreBoard').innerHTML = scoreHTML || "획득 없음";
+
+            renderPlanets(gameState.planets);
+            renderHand(me.hand || []);
+
+            const msg = document.getElementById('gameMsg');
+            const btn = document.getElementById('playBtn');
+            
+            if (gameState.roundState === `waiting_${myRole}`) {
+                msg.innerText = "카드를 선택하세요!";
+                btn.disabled = false; btn.innerText = "선택 완료";
+            } else if (gameState.roundState === `waiting_${oppRole}`) {
+                msg.innerText = isOnline ? "상대방 고민 중..." : "AI 생각 중...";
+                btn.disabled = true; btn.innerText = "대기 중";
+                if(!isOnline && oppRole === 'p2') setTimeout(aiTurn, 1000); // AI 턴 트리거
+            } else {
+                msg.innerText = "결과 정산 중..."; btn.disabled = true;
+            }
+        }
+
+        function playCards() {
+            if(selectedIndices.length === 0) return;
+            const hand = gameState[myRole].hand;
+            const type = hand[selectedIndices[0]];
+            const count = selectedIndices.length;
+
+            // 로컬 상태 업데이트 로직 (공통)
+            const newHand = hand.filter((_, i) => !selectedIndices.includes(i));
+            
+            let updates = {};
+            if(isOnline) {
+                // 온라인: 업데이트 객체 생성
+                let planets = [...gameState.planets];
+                planets[type] = calcMove(planets, type, count);
+                updates[`${myRole}/hand`] = newHand;
+                updates[`currentRoundCards/${myRole}`] = { type, count };
+                updates[`planets`] = planets;
+                
+                const oppRole = myRole==='p1'?'p2':'p1';
+                if(gameState.currentRoundCards[oppRole]) {
+                    updates['roundState'] = 'resolving';
+                    db.ref(`orbita_real_battles/${battleId}`).update(updates).then(resolveRoundOnline);
+                } else {
+                    updates['roundState'] = `waiting_${oppRole}`;
+                    db.ref(`orbita_real_battles/${battleId}`).update(updates);
+                }
+            } else {
+                // AI 모드: 로컬 상태 직접 수정
+                gameState[myRole].hand = newHand;
+                gameState.currentRoundCards[myRole] = { type, count };
+                gameState.planets[type] = calcMove(gameState.planets, type, count);
+                
+                const oppRole = myRole==='p1'?'p2':'p1';
+                if(gameState.currentRoundCards[oppRole]) {
+                    gameState.roundState = 'resolving';
+                    updateView();
+                    setTimeout(resolveRoundLocal, 1000);
+                } else {
+                    gameState.roundState = `waiting_${oppRole}`;
+                    updateView();
+                }
+            }
+        }
+
+        // --- AI 로직 ---
+        function aiTurn() {
+            // AI는 p2 고정
+            const aiHand = gameState.p2.hand;
+            const p1Card = gameState.currentRoundCards.p1;
+            
+            // 1. 유효한 모든 수집 찾기 (인덱스 배열)
+            let validMoves = [];
+            // 각 카드별로 가능한 최대 장수(1~3) 확인
+            for(let i=0; i<aiHand.length; i++) {
+                const type = aiHand[i];
+                // 후공이면 선공과 다른 색이어야 함
+                if(p1Card && p1Card.type === type) continue; 
+                
+                // 1장 내기
+                validMoves.push([i]);
+                // 2장 연달아
+                if(i+1 < aiHand.length && aiHand[i+1] === type) {
+                    validMoves.push([i, i+1]);
+                    // 3장 연달아
+                    if(i+2 < aiHand.length && aiHand[i+2] === type) {
+                        validMoves.push([i, i+1, i+2]);
+                    }
+                }
+            }
+            
+            if(validMoves.length === 0) {
+                // 낼 카드가 없으면? (규칙상 발생 가능) -> 패스 처리 필요하나 단순화 위해 강제 종료
+                endGame(calculateFinalWinner(gameState), 'normal');
+                return;
+            }
+
+            // 랜덤 선택
+            const pick = validMoves[Math.floor(Math.random() * validMoves.length)];
+            const type = aiHand[pick[0]];
+            const count = pick.length;
+
+            // 실행
+            const newHand = aiHand.filter((_, idx) => !pick.includes(idx));
+            gameState.p2.hand = newHand;
+            gameState.currentRoundCards.p2 = { type, count };
+            gameState.planets[type] = calcMove(gameState.planets, type, count);
+            
+            gameState.roundState = 'resolving';
+            updateView();
+            setTimeout(resolveRoundLocal, 1000);
+        }
+
+        // --- 정산 로직 ---
+        function resolveRoundOnline() {
+            setTimeout(() => {
+                db.ref(`orbita_real_battles/${battleId}`).transaction(g => {
+                    if(!g || g.roundState !== 'resolving') return;
+                    return applyRoundResult(g);
+                });
+            }, 1000);
+        }
+        function resolveRoundLocal() {
+            gameState = applyRoundResult(gameState);
+            if(gameState.winner) endGame(gameState.winner, gameState.winReason);
+            else updateView();
+        }
+
+        function applyRoundResult(g) {
+            const c1 = g.currentRoundCards.p1, c2 = g.currentRoundCards.p2;
+            const p1Pos = g.planets[c1.type], p2Pos = g.planets[c2.type];
+            
+            let winner = g.roundStartPlayer;
+            if(p1Pos > p2Pos) winner = 'p1';
+            else if(p2Pos > p1Pos) winner = 'p2';
+            
+            g[winner].collected[c1.type] += c1.count;
+            g[winner].collected[c2.type] += c2.count;
+            
+            g.currentRoundCards = {p1:null, p2:null};
+            g.roundStartPlayer = winner;
+            
+            if((!g.p1.hand || g.p1.hand.length===0) || (!g.p2.hand || g.p2.hand.length===0)) {
+                g.winner = calculateFinalWinner(g); g.winReason = 'normal';
+            } else {
+                g.roundState = `waiting_${winner}`;
+            }
+            return g;
+        }
+
+        function calcMove(planets, type, count) {
+            let pos = planets[type];
+            let moves = count;
+            while(moves > 0) {
+                pos = pos >= 14 ? 1 : pos + 1;
+                let occupied = false;
+                for(let i=0; i<4; i++) if(i!==type && planets[i]===pos) occupied = true;
+                if(!occupied) moves--;
+            }
+            return pos;
+        }
+
+        function calculateFinalWinner(g) {
+            let p1Pen = 0, p2Pen = 0;
+            for(let i=0; i<4; i++) {
+                const c1 = g.p1.collected[i], c2 = g.p2.collected[i];
+                if(c1 < c2) p1Pen += c1; else if(c2 < c1) p2Pen += c2;
+            }
+            if(p1Pen < p2Pen) return 'p1'; if(p2Pen < p1Pen) return 'p2';
+            const t1 = g.p1.collected.reduce((a,b)=>a+b,0), t2 = g.p2.collected.reduce((a,b)=>a+b,0);
+            return t1 > t2 ? 'p1' : (t2 > t1 ? 'p2' : 'draw');
+        }
+
+        function toggleSelect(idx, type, hand) {
+            const cardEl = document.querySelector(`.my-card[data-idx="${idx}"]`);
+            if(selectedIndices.includes(idx)) {
+                selectedIndices = selectedIndices.filter(i=>i!==idx);
+                cardEl.classList.remove('selected'); return;
+            }
+            if(selectedIndices.length >= 3) return;
+            if(selectedIndices.length > 0 && hand[selectedIndices[0]] !== type) return alert("같은 종류만 가능!");
+            
+            const temp = [...selectedIndices, idx].sort((a,b)=>a-b);
+            for(let i=0; i<temp.length-1; i++) if(temp[i+1] !== temp[i]+1) return alert("인접한 카드만 가능!");
+            
+            if(gameState.roundState === `waiting_${myRole}` && gameState.roundStartPlayer !== myRole) {
+                const oppRole = myRole==='p1'?'p2':'p1';
+                const oppCard = gameState.currentRoundCards[oppRole];
+                if(oppCard && oppCard.type === type) return alert("상대방과 다른 종류여야 합니다!");
+            }
+            selectedIndices.push(idx); cardEl.classList.add('selected');
+        }
+
+        function renderTrack() {
+            const t = document.getElementById('track'); t.innerHTML = '';
+            for(let i=1; i<=14; i++) {
+                const n = Math.ceil(i/2), p = i%2===0;
+                t.innerHTML += `<div class="track-cell ${p?'plus':''}" id="track-${i}"><span style="opacity:0.5">${n}${p?'+':''}</span><div class="tk-area" style="display:flex;"></div></div>`;
+            }
+        }
+        function renderPlanets(pos) {
+            document.querySelectorAll('.planet-token').forEach(e=>e.remove());
+            pos.forEach((p,i) => { if(p>0) document.querySelector(`#track-${p} .tk-area`)?.appendChild(Object.assign(document.createElement('div'),{className:`planet-token ${COLORS[i]}`})); });
+        }
+        function renderHand(hand) {
+            const c = document.getElementById('myHand'); c.innerHTML = ''; selectedIndices = [];
+            hand.forEach((t,i) => {
+                const d = document.createElement('div'); d.className = `my-card ${COLORS[t]}`; d.innerText = PLANET_NAMES[t]; d.dataset.idx = i;
+                if(gameState.roundState === `waiting_${myRole}`) d.onclick = () => toggleSelect(i, t, hand);
+                else d.classList.add('disabled');
+                c.appendChild(d);
+            });
+        }
+        function shuffleDeck() {
+            let d = []; for(let i=0; i<4; i++) for(let j=0; j<7; j++) d.push(i);
+            for(let i=d.length-1; i>0; i--) { const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
+            return d;
+        }
+        function quitGame() {
+            if(!confirm("나가시겠습니까?")) return;
+            if(isOnline) db.ref(`orbita_real_battles/${battleId}`).update({winner:myRole==='p1'?'p2':'p1', winReason:'quit'});
+            else show('lobbyScreen');
+        }
+        function endGame(w, r) { alert(w==='draw'?"무승부!":(w===myRole?"승리! 🎉":"패배...")); show('lobbyScreen'); if(isOnline) db.ref(`orbita_real_battles/${battleId}`).off(); }
+        function show(id){ document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+    </script>
+</body>
+</html>
