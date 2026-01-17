@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ORBITA - RULE FIXED</title>
+    <title>ORBITA - FINAL FIX</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -11,7 +11,7 @@
         :root { --bg: #0f0c29; --panel: rgba(255, 255, 255, 0.1); --accent: #ffd700; }
         body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: white; font-family: 'Pretendard', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; user-select: none; -webkit-user-select: none; }
         
-        /* 카드 스타일 */
+        /* 테마 */
         .c-red { background: linear-gradient(45deg, #ff416c, #ff4b2b); box-shadow: 0 2px 5px rgba(255, 65, 108, 0.4); }
         .c-blue { background: linear-gradient(45deg, #2193b0, #6dd5ed); box-shadow: 0 2px 5px rgba(33, 147, 176, 0.4); }
         .c-green { background: linear-gradient(45deg, #56ab2f, #a8e063); box-shadow: 0 2px 5px rgba(86, 171, 47, 0.4); }
@@ -21,9 +21,10 @@
         .active { display: flex; }
         
         .card-box { background: var(--panel); border-radius: 15px; padding: 20px; width: 100%; margin-bottom: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.2); }
-        .btn { width: 100%; padding: 12px; background: var(--accent); color: #000; font-weight: bold; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 5px; }
+        .btn { width: 100%; padding: 12px; background: var(--accent); color: #000; font-weight: bold; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 5px; transition: 0.2s; }
+        .btn:active { transform: scale(0.98); }
         .btn-sub { background: #444; color: #ccc; } 
-        .btn:disabled { background: #555; color: #888; cursor: not-allowed; }
+        .btn:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
 
         .track-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 10px 0; width: 100%; }
         .track-cell { width: 42px; height: 55px; background: rgba(0,0,0,0.3); border: 1px solid #555; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; font-size: 0.8rem; padding-top: 2px; position: relative; }
@@ -130,7 +131,6 @@
             else auth.signInWithEmailAndPassword(e,p).catch(e=>alert(e.message));
         }
 
-        // --- AI 모드 ---
         function startAI() {
             isOnline = false; battleId = "local_ai"; myRole = 'p1';
             const initDeck = shuffleDeck();
@@ -143,7 +143,6 @@
             show('gameScreen'); renderTrack(); updateView();
         }
 
-        // --- 온라인 매칭 ---
         function findMatch() {
             isOnline = true; show('waitScreen');
             const qRef = db.ref('orbita_real_queue');
@@ -175,7 +174,6 @@
         }
         function cancelMatch() { db.ref('orbita_real_queue').transaction(c=>(c?.uid===myUid?null:c)); show('lobbyScreen'); }
 
-        // --- 뷰 업데이트 ---
         function updateView() {
             const me = gameState[myRole];
             const oppRole = myRole==='p1'?'p2':'p1';
@@ -217,40 +215,26 @@
             el.innerHTML = '';
             collected.forEach((cnt, idx) => {
                 const isActive = cnt > 0;
-                el.innerHTML += `
-                    <div class="collected-item">
-                        <div class="collected-icon ${COLORS[idx]} ${isActive?'active':''}"></div>
-                        <div class="collected-count ${isActive?'active':''}">${cnt}</div>
-                    </div>
-                `;
+                el.innerHTML += `<div class="collected-item"><div class="collected-icon ${COLORS[idx]} ${isActive?'active':''}"></div><div class="collected-count ${isActive?'active':''}">${cnt}</div></div>`;
             });
         }
 
-        // [핵심 로직 수정] 카드 선택 및 검증
+        // [핵심 수정: 카드 선택 및 표시 동기화]
         function toggleSelect(idx, type, hand) {
-            const cardEl = document.querySelector(`.my-card[data-idx="${idx}"]`);
-            
-            // 이미 선택된 상태 -> 해제 (전체 해제)
+            // 이미 선택된 거 해제 (전체 해제)
             if(selectedIndices.includes(idx)) {
-                selectedIndices.forEach(i => {
-                    document.querySelector(`.my-card[data-idx="${i}"]`)?.classList.remove('selected');
-                });
                 selectedIndices = [];
+                updateSelectionVisuals();
                 return;
             }
 
-            // 1. 클릭한 카드가 속한 '그룹' 찾기 (연속된 같은 색상)
+            // 1. 그룹 찾기 (색상 연속)
             let group = [idx];
-            // 왼쪽 탐색
-            let l = idx - 1;
-            while(l >= 0 && hand[l] === type) { group.push(l); l--; }
-            // 오른쪽 탐색
-            let r = idx + 1;
-            while(r < hand.length && hand[r] === type) { group.push(r); r++; }
+            let l = idx - 1; while(l >= 0 && hand[l] === type) { group.push(l); l--; }
+            let r = idx + 1; while(r < hand.length && hand[r] === type) { group.push(r); r++; }
             group.sort((a,b)=>a-b);
-            const groupSize = group.length;
-
-            // 2. 상대방 후공 규칙 체크
+            
+            // 2. 후공 규칙 체크
             if(gameState.roundState === `waiting_${myRole}` && gameState.roundStartPlayer !== myRole) {
                 const oppRole = myRole==='p1'?'p2':'p1';
                 const oppCard = gameState.currentRoundCards[oppRole];
@@ -258,46 +242,44 @@
             }
 
             // 3. 규칙 적용
-            // [규칙 B] 3장 이하: 무조건 다 내야 함 (자동 전체 선택)
-            if (groupSize <= 3) {
+            if (group.length <= 3) {
+                // [3장 이하] 자동 전체 선택
                 selectedIndices = group;
-                // UI 업데이트
-                selectedIndices.forEach(i => {
-                    document.querySelector(`.my-card[data-idx="${i}"]`)?.classList.add('selected');
-                });
-                // 안내 메시지 (옵션)
-                // console.log("3장 이하여서 모두 선택되었습니다.");
-            } 
-            // [예외 규칙] 4장 이상: 1~3장 선택 가능
-            else {
-                // 기존 선택 로직 유지 (연속성 체크 등)
-                // 이번 클릭이 첫 선택이라면 -> 일단 1장만 선택
+            } else {
+                // [4장 이상] 1~3장 선택
                 if(selectedIndices.length === 0) {
                     selectedIndices = [idx];
-                    cardEl.classList.add('selected');
                 } else {
-                    // 추가 선택: 인접해야 함 + 같은 종류여야 함 + 최대 3장
-                    if(selectedIndices.length >= 3) return; // 3장 초과 불가
-                    if(hand[selectedIndices[0]] !== type) return; // 다른 색 불가 (이미 막힘)
-                    
+                    // 추가 선택 조건 검증
+                    if(selectedIndices.length >= 3) return; 
+                    if(hand[selectedIndices[0]] !== type) return; 
                     const temp = [...selectedIndices, idx].sort((a,b)=>a-b);
-                    let isContiguous = true;
-                    for(let i=0; i<temp.length-1; i++) if(temp[i+1] !== temp[i]+1) isContiguous = false;
-                    
-                    if(!isContiguous) return alert("인접한 카드만 선택 가능합니다.");
-                    
+                    for(let i=0; i<temp.length-1; i++) if(temp[i+1] !== temp[i]+1) return alert("인접한 카드만 선택 가능합니다.");
                     selectedIndices.push(idx);
-                    cardEl.classList.add('selected');
                 }
             }
+            updateSelectionVisuals();
         }
 
+        function updateSelectionVisuals() {
+            document.querySelectorAll('.my-card').forEach(el => {
+                const i = parseInt(el.dataset.idx);
+                if (selectedIndices.includes(i)) el.classList.add('selected');
+                else el.classList.remove('selected');
+            });
+        }
+
+        // [핵심 수정: 선택 여부 체크]
         function playCards() {
-            if(selectedIndices.length === 0) return;
+            if(selectedIndices.length === 0) return alert("카드를 먼저 선택해주세요!");
+            
+            // 버튼 즉시 비활성화 (중복 클릭 방지)
+            const btn = document.getElementById('playBtn');
+            btn.disabled = true; btn.innerText = "처리 중...";
+
             const hand = gameState[myRole].hand;
             const type = hand[selectedIndices[0]];
             const count = selectedIndices.length;
-
             const newHand = hand.filter((_, i) => !selectedIndices.includes(i));
             
             if(isOnline) {
@@ -333,43 +315,24 @@
             }
         }
 
-        // --- AI ---
         function aiTurn() {
             const aiHand = gameState.p2.hand;
             const p1Card = gameState.currentRoundCards.p1;
-            
-            // AI도 규칙에 맞게 내야 함
             let validMoves = [];
             
-            // 가능한 모든 그룹 찾기
             let groups = [];
             let currentGroup = [];
             for(let i=0; i<aiHand.length; i++) {
-                if(currentGroup.length === 0 || aiHand[i] === aiHand[i-1]) {
-                    currentGroup.push(i);
-                } else {
-                    groups.push([...currentGroup]);
-                    currentGroup = [i];
-                }
+                if(currentGroup.length === 0 || aiHand[i] === aiHand[i-1]) currentGroup.push(i);
+                else { groups.push([...currentGroup]); currentGroup = [i]; }
             }
             if(currentGroup.length > 0) groups.push(currentGroup);
 
-            // 각 그룹별로 유효한 무브 생성
             groups.forEach(grp => {
                 const type = aiHand[grp[0]];
-                // 후공 체크
                 if(p1Card && p1Card.type === type) return;
-
-                if(grp.length <= 3) {
-                    // 무조건 다 내야 함
-                    validMoves.push(grp);
-                } else {
-                    // 4장 이상: 1~3장 (앞에서부터)
-                    validMoves.push([grp[0]]);
-                    validMoves.push([grp[0], grp[1]]);
-                    validMoves.push([grp[0], grp[1], grp[2]]);
-                    // (뒤에서부터 내는 경우도 있지만 AI는 단순화)
-                }
+                if(grp.length <= 3) validMoves.push(grp);
+                else { validMoves.push([grp[0]]); validMoves.push([grp[0], grp[1]]); validMoves.push([grp[0], grp[1], grp[2]]); }
             });
 
             if(validMoves.length === 0) { endGame(calculateFinalWinner(gameState), 'normal'); return; }
@@ -386,50 +349,27 @@
             updateView(); setTimeout(resolveRoundLocal, 1000);
         }
 
-        // --- 정산 ---
-        function resolveRoundOnline() {
-            setTimeout(() => {
-                db.ref(`orbita_real_battles/${battleId}`).transaction(g => {
-                    if(!g || g.roundState !== 'resolving') return;
-                    return applyRoundResult(g);
-                });
-            }, 1000);
-        }
-        function resolveRoundLocal() {
-            gameState = applyRoundResult(gameState);
-            if(gameState.winner) endGame(gameState.winner, gameState.winReason);
-            else updateView();
-        }
+        function resolveRoundOnline() { setTimeout(() => { db.ref(`orbita_real_battles/${battleId}`).transaction(g => (g && g.roundState === 'resolving') ? applyRoundResult(g) : undefined); }, 1000); }
+        function resolveRoundLocal() { gameState = applyRoundResult(gameState); if(gameState.winner) endGame(gameState.winner, gameState.winReason); else updateView(); }
 
         function applyRoundResult(g) {
             const c1 = g.currentRoundCards.p1, c2 = g.currentRoundCards.p2;
             const p1Pos = g.planets[c1.type], p2Pos = g.planets[c2.type];
             let winner = g.roundStartPlayer;
-            if(p1Pos > p2Pos) winner = 'p1';
-            else if(p2Pos > p1Pos) winner = 'p2';
+            if(p1Pos > p2Pos) winner = 'p1'; else if(p2Pos > p1Pos) winner = 'p2';
             
-            g[winner].collected[c1.type] += c1.count;
-            g[winner].collected[c2.type] += c2.count;
+            g[winner].collected[c1.type] += c1.count; g[winner].collected[c2.type] += c2.count;
             g.lastRoundResult = { winner: winner, type: c1.count > c2.count ? c1.type : c2.type, count: c1.count + c2.count };
-            g.currentRoundCards = {p1:null, p2:null};
-            g.roundStartPlayer = winner;
+            g.currentRoundCards = {p1:null, p2:null}; g.roundStartPlayer = winner;
             
-            if((!g.p1.hand || g.p1.hand.length===0) || (!g.p2.hand || g.p2.hand.length===0)) {
-                g.winner = calculateFinalWinner(g); g.winReason = 'normal';
-            } else {
-                g.roundState = `waiting_${winner}`;
-            }
+            if((!g.p1.hand || g.p1.hand.length===0) || (!g.p2.hand || g.p2.hand.length===0)) { g.winner = calculateFinalWinner(g); g.winReason = 'normal'; }
+            else { g.roundState = `waiting_${winner}`; }
             return g;
         }
 
         function calcMove(planets, type, count) {
             let pos = planets[type]; let moves = count;
-            while(moves > 0) {
-                pos = pos >= 14 ? 1 : pos + 1;
-                let occupied = false;
-                for(let i=0; i<4; i++) if(i!==type && planets[i]===pos) occupied = true;
-                if(!occupied) moves--;
-            }
+            while(moves > 0) { pos = pos >= 14 ? 1 : pos + 1; let occupied = false; for(let i=0; i<4; i++) if(i!==type && planets[i]===pos) occupied = true; if(!occupied) moves--; }
             return pos;
         }
 
