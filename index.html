@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ORBITA - VISUAL UPDATE</title>
+    <title>ORBITA - RULE FIXED</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -11,7 +11,7 @@
         :root { --bg: #0f0c29; --panel: rgba(255, 255, 255, 0.1); --accent: #ffd700; }
         body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: white; font-family: 'Pretendard', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; user-select: none; -webkit-user-select: none; }
         
-        /* 카드 색상 및 테마 */
+        /* 카드 스타일 */
         .c-red { background: linear-gradient(45deg, #ff416c, #ff4b2b); box-shadow: 0 2px 5px rgba(255, 65, 108, 0.4); }
         .c-blue { background: linear-gradient(45deg, #2193b0, #6dd5ed); box-shadow: 0 2px 5px rgba(33, 147, 176, 0.4); }
         .c-green { background: linear-gradient(45deg, #56ab2f, #a8e063); box-shadow: 0 2px 5px rgba(86, 171, 47, 0.4); }
@@ -25,20 +25,17 @@
         .btn-sub { background: #444; color: #ccc; } 
         .btn:disabled { background: #555; color: #888; cursor: not-allowed; }
 
-        /* 트랙 스타일 */
         .track-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 10px 0; width: 100%; }
         .track-cell { width: 42px; height: 55px; background: rgba(0,0,0,0.3); border: 1px solid #555; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; font-size: 0.8rem; padding-top: 2px; position: relative; }
         .track-cell.plus { background: rgba(255, 255, 255, 0.1); border-color: #999; }
         .planet-token { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 8px rgba(255,255,255,0.5); margin-top: 2px; z-index: 5; transition: all 0.3s ease; }
         
-        /* 내 손패 */
         .hand-area { width:100%; background:rgba(0,0,0,0.4); padding:10px; border-radius:15px 15px 0 0; margin-top:auto; box-sizing: border-box; border-top: 1px solid rgba(255,255,255,0.1); }
         .hand-container { display: flex; overflow-x: auto; gap: -5px; padding: 5px 0; width: 100%; height: 90px; justify-content: center; align-items: center; }
         .my-card { width: 55px; height: 85px; border-radius: 8px; border: 2px solid #fff; flex-shrink: 0; margin-right: 4px; cursor: pointer; transition: transform 0.2s; position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; text-shadow: 0 1px 2px #000; font-size: 1.2rem; }
         .my-card.selected { transform: translateY(-15px) scale(1.05); border-color: var(--accent); z-index: 10; box-shadow: 0 0 15px var(--accent); }
         .my-card.disabled { opacity: 0.4; filter: grayscale(0.8); pointer-events: none; }
 
-        /* 획득한 카드 (점수판) 개선 */
         .collection-area { display: flex; gap: 8px; justify-content: center; margin-top: 5px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 8px; }
         .collected-item { display: flex; flex-direction: column; align-items: center; position: relative; width: 30px; }
         .collected-icon { width: 24px; height: 32px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5); opacity: 0.3; transition: 0.3s; }
@@ -46,12 +43,10 @@
         .collected-count { font-size: 0.8rem; font-weight: bold; margin-top: 2px; color: #ccc; }
         .collected-count.active { color: var(--accent); }
 
-        /* 알림 메시지 */
         .info-msg { text-align: center; font-size: 0.9rem; color: #aaa; margin: 5px 0; min-height: 20px; }
         .round-result { color: var(--accent); font-weight: bold; animation: pop 0.3s; }
         @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
-        /* 플레이어 정보 바 */
         .player-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 5px 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 5px; box-sizing: border-box; }
         .player-name { font-weight: bold; font-size: 0.95rem; }
     </style>
@@ -94,8 +89,7 @@
             <span id="oppName" class="player-name">상대방</span>
             <span id="oppHandCnt" style="font-size:0.8rem; color:#aaa;">카드 14장</span>
         </div>
-        <div class="collection-area" id="oppCollection">
-            </div>
+        <div class="collection-area" id="oppCollection"></div>
 
         <div class="track-container" id="track"></div>
         
@@ -106,10 +100,7 @@
                 <span id="myName" class="player-name" style="color:var(--accent)">나</span>
                 <button id="playBtn" class="btn" onclick="playCards()" style="width:auto; padding:5px 15px; margin:0; font-size:0.9rem;" disabled>선택 완료</button>
             </div>
-            
-            <div class="collection-area" id="myCollection" style="background:rgba(255,255,255,0.05); margin-bottom:10px;">
-                </div>
-
+            <div class="collection-area" id="myCollection" style="background:rgba(255,255,255,0.05); margin-bottom:10px;"></div>
             <div class="hand-container" id="myHand"></div>
         </div>
         
@@ -194,21 +185,17 @@
             document.getElementById('oppName').innerText = opp.name;
             document.getElementById('oppHandCnt').innerText = `카드 ${opp.hand ? opp.hand.length : 0}장`;
             
-            // 획득 카드 시각화 (중요 수정)
             renderCollection('myCollection', me.collected);
             renderCollection('oppCollection', opp.collected);
-
             renderPlanets(gameState.planets);
             renderHand(me.hand || []);
 
             const msg = document.getElementById('gameMsg');
             const btn = document.getElementById('playBtn');
             
-            // 라운드 결과 메시지 (Last Round Result)
             if(gameState.lastRoundResult) {
                 const lr = gameState.lastRoundResult;
                 const winnerName = lr.winner === myRole ? "나" : (isOnline ? opp.name : "AI");
-                const colorName = ["빨강", "파랑", "초록", "보라"][lr.type];
                 msg.innerHTML = `<span class="round-result">${winnerName} 승리! ${PLANET_NAMES[lr.type]}카드 ${lr.count}장 획득</span>`;
             } else {
                 msg.innerText = "게임을 시작합니다.";
@@ -239,6 +226,72 @@
             });
         }
 
+        // [핵심 로직 수정] 카드 선택 및 검증
+        function toggleSelect(idx, type, hand) {
+            const cardEl = document.querySelector(`.my-card[data-idx="${idx}"]`);
+            
+            // 이미 선택된 상태 -> 해제 (전체 해제)
+            if(selectedIndices.includes(idx)) {
+                selectedIndices.forEach(i => {
+                    document.querySelector(`.my-card[data-idx="${i}"]`)?.classList.remove('selected');
+                });
+                selectedIndices = [];
+                return;
+            }
+
+            // 1. 클릭한 카드가 속한 '그룹' 찾기 (연속된 같은 색상)
+            let group = [idx];
+            // 왼쪽 탐색
+            let l = idx - 1;
+            while(l >= 0 && hand[l] === type) { group.push(l); l--; }
+            // 오른쪽 탐색
+            let r = idx + 1;
+            while(r < hand.length && hand[r] === type) { group.push(r); r++; }
+            group.sort((a,b)=>a-b);
+            const groupSize = group.length;
+
+            // 2. 상대방 후공 규칙 체크
+            if(gameState.roundState === `waiting_${myRole}` && gameState.roundStartPlayer !== myRole) {
+                const oppRole = myRole==='p1'?'p2':'p1';
+                const oppCard = gameState.currentRoundCards[oppRole];
+                if(oppCard && oppCard.type === type) return alert("상대방이 낸 카드와 다른 종류여야 합니다!");
+            }
+
+            // 3. 규칙 적용
+            // [규칙 B] 3장 이하: 무조건 다 내야 함 (자동 전체 선택)
+            if (groupSize <= 3) {
+                selectedIndices = group;
+                // UI 업데이트
+                selectedIndices.forEach(i => {
+                    document.querySelector(`.my-card[data-idx="${i}"]`)?.classList.add('selected');
+                });
+                // 안내 메시지 (옵션)
+                // console.log("3장 이하여서 모두 선택되었습니다.");
+            } 
+            // [예외 규칙] 4장 이상: 1~3장 선택 가능
+            else {
+                // 기존 선택 로직 유지 (연속성 체크 등)
+                // 이번 클릭이 첫 선택이라면 -> 일단 1장만 선택
+                if(selectedIndices.length === 0) {
+                    selectedIndices = [idx];
+                    cardEl.classList.add('selected');
+                } else {
+                    // 추가 선택: 인접해야 함 + 같은 종류여야 함 + 최대 3장
+                    if(selectedIndices.length >= 3) return; // 3장 초과 불가
+                    if(hand[selectedIndices[0]] !== type) return; // 다른 색 불가 (이미 막힘)
+                    
+                    const temp = [...selectedIndices, idx].sort((a,b)=>a-b);
+                    let isContiguous = true;
+                    for(let i=0; i<temp.length-1; i++) if(temp[i+1] !== temp[i]+1) isContiguous = false;
+                    
+                    if(!isContiguous) return alert("인접한 카드만 선택 가능합니다.");
+                    
+                    selectedIndices.push(idx);
+                    cardEl.classList.add('selected');
+                }
+            }
+        }
+
         function playCards() {
             if(selectedIndices.length === 0) return;
             const hand = gameState[myRole].hand;
@@ -254,7 +307,7 @@
                 updates[`${myRole}/hand`] = newHand;
                 updates[`currentRoundCards/${myRole}`] = { type, count };
                 updates[`planets`] = planets;
-                updates[`lastRoundResult`] = null; // 새 라운드 시작 시 결과 초기화는 아니고 유지하다가 갱신
+                updates[`lastRoundResult`] = null; 
                 
                 const oppRole = myRole==='p1'?'p2':'p1';
                 if(gameState.currentRoundCards[oppRole]) {
@@ -284,16 +337,41 @@
         function aiTurn() {
             const aiHand = gameState.p2.hand;
             const p1Card = gameState.currentRoundCards.p1;
+            
+            // AI도 규칙에 맞게 내야 함
             let validMoves = [];
+            
+            // 가능한 모든 그룹 찾기
+            let groups = [];
+            let currentGroup = [];
             for(let i=0; i<aiHand.length; i++) {
-                const type = aiHand[i];
-                if(p1Card && p1Card.type === type) continue; 
-                validMoves.push([i]);
-                if(i+1 < aiHand.length && aiHand[i+1] === type) {
-                    validMoves.push([i, i+1]);
-                    if(i+2 < aiHand.length && aiHand[i+2] === type) validMoves.push([i, i+1, i+2]);
+                if(currentGroup.length === 0 || aiHand[i] === aiHand[i-1]) {
+                    currentGroup.push(i);
+                } else {
+                    groups.push([...currentGroup]);
+                    currentGroup = [i];
                 }
             }
+            if(currentGroup.length > 0) groups.push(currentGroup);
+
+            // 각 그룹별로 유효한 무브 생성
+            groups.forEach(grp => {
+                const type = aiHand[grp[0]];
+                // 후공 체크
+                if(p1Card && p1Card.type === type) return;
+
+                if(grp.length <= 3) {
+                    // 무조건 다 내야 함
+                    validMoves.push(grp);
+                } else {
+                    // 4장 이상: 1~3장 (앞에서부터)
+                    validMoves.push([grp[0]]);
+                    validMoves.push([grp[0], grp[1]]);
+                    validMoves.push([grp[0], grp[1], grp[2]]);
+                    // (뒤에서부터 내는 경우도 있지만 AI는 단순화)
+                }
+            });
+
             if(validMoves.length === 0) { endGame(calculateFinalWinner(gameState), 'normal'); return; }
 
             const pick = validMoves[Math.floor(Math.random() * validMoves.length)];
@@ -326,23 +404,13 @@
         function applyRoundResult(g) {
             const c1 = g.currentRoundCards.p1, c2 = g.currentRoundCards.p2;
             const p1Pos = g.planets[c1.type], p2Pos = g.planets[c2.type];
-            
             let winner = g.roundStartPlayer;
             if(p1Pos > p2Pos) winner = 'p1';
             else if(p2Pos > p1Pos) winner = 'p2';
             
-            // 획득 처리
-            const totalCount = c1.count + c2.count;
-            // 승자가 낸 카드 타입으로 다 들어가는게 아니라, 낸 카드 종류별로 획득 (규칙서: "이번 라운드에 두 사람이 낸 행성 카드를 모두 가져와서.. 분류해 둡니다")
             g[winner].collected[c1.type] += c1.count;
             g[winner].collected[c2.type] += c2.count;
-
-            // 결과 기록 (화면 표시용)
-            // 승자가 주로 '본인이 낸 카드' 색상을 획득했다고 대표 표시하는게 직관적일 듯 하나,
-            // 실제로는 두 종류를 먹을 수도 있음. 
-            // 여기서는 "승리자가 획득!" 메시지를 위해 승리자 정보 저장
-            g.lastRoundResult = { winner: winner, type: c1.count > c2.count ? c1.type : c2.type, count: totalCount };
-
+            g.lastRoundResult = { winner: winner, type: c1.count > c2.count ? c1.type : c2.type, count: c1.count + c2.count };
             g.currentRoundCards = {p1:null, p2:null};
             g.roundStartPlayer = winner;
             
@@ -374,21 +442,6 @@
             if(p1Pen < p2Pen) return 'p1'; if(p2Pen < p1Pen) return 'p2';
             const t1 = g.p1.collected.reduce((a,b)=>a+b,0), t2 = g.p2.collected.reduce((a,b)=>a+b,0);
             return t1 > t2 ? 'p1' : (t2 > t1 ? 'p2' : 'draw');
-        }
-
-        function toggleSelect(idx, type, hand) {
-            const cardEl = document.querySelector(`.my-card[data-idx="${idx}"]`);
-            if(selectedIndices.includes(idx)) { selectedIndices = selectedIndices.filter(i=>i!==idx); cardEl.classList.remove('selected'); return; }
-            if(selectedIndices.length >= 3) return;
-            if(selectedIndices.length > 0 && hand[selectedIndices[0]] !== type) return alert("같은 종류만 가능!");
-            const temp = [...selectedIndices, idx].sort((a,b)=>a-b);
-            for(let i=0; i<temp.length-1; i++) if(temp[i+1] !== temp[i]+1) return alert("인접한 카드만 가능!");
-            if(gameState.roundState === `waiting_${myRole}` && gameState.roundStartPlayer !== myRole) {
-                const oppRole = myRole==='p1'?'p2':'p1';
-                const oppCard = gameState.currentRoundCards[oppRole];
-                if(oppCard && oppCard.type === type) return alert("상대방과 다른 종류여야 합니다!");
-            }
-            selectedIndices.push(idx); cardEl.classList.add('selected');
         }
 
         function renderTrack() {
