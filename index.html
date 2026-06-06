@@ -2,443 +2,257 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ORBITA - FINAL STABLE</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>음식 라이어 게임</title>
+    <!-- 서버 없이 P2P 연결을 도와주는 PeerJS 라이브러리 -->
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #0f0c29; --panel: rgba(255, 255, 255, 0.1); --accent: #ffd700; }
-        body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: white; font-family: 'Pretendard', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; user-select: none; -webkit-user-select: none; }
-        
-        .c-red { background: linear-gradient(45deg, #ff416c, #ff4b2b); box-shadow: 0 2px 5px rgba(255, 65, 108, 0.4); }
-        .c-blue { background: linear-gradient(45deg, #2193b0, #6dd5ed); box-shadow: 0 2px 5px rgba(33, 147, 176, 0.4); }
-        .c-green { background: linear-gradient(45deg, #56ab2f, #a8e063); box-shadow: 0 2px 5px rgba(86, 171, 47, 0.4); }
-        .c-purple { background: linear-gradient(45deg, #834d9b, #d04ed6); box-shadow: 0 2px 5px rgba(131, 77, 155, 0.4); }
-
-        .screen { display: none; width: 100%; max-width: 600px; padding: 10px; box-sizing: border-box; flex-direction: column; align-items: center; height: 100vh; }
-        .active { display: flex; }
-        
-        .card-box { background: var(--panel); border-radius: 15px; padding: 20px; width: 100%; margin-bottom: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.2); }
-        .btn { width: 100%; padding: 12px; background: var(--accent); color: #000; font-weight: bold; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 5px; transition: 0.2s; }
-        .btn:active { transform: scale(0.98); }
-        .btn-sub { background: #444; color: #ccc; } 
-        .btn:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
-
-        .track-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 10px 0; width: 100%; }
-        .track-cell { width: 42px; height: 55px; background: rgba(0,0,0,0.3); border: 1px solid #555; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; font-size: 0.8rem; padding-top: 2px; position: relative; }
-        .track-cell.plus { background: rgba(255, 255, 255, 0.1); border-color: #999; }
-        .planet-token { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 8px rgba(255,255,255,0.5); margin-top: 2px; z-index: 5; transition: all 0.3s ease; }
-        
-        .hand-area { width:100%; background:rgba(0,0,0,0.4); padding:10px; border-radius:15px 15px 0 0; margin-top:auto; box-sizing: border-box; border-top: 1px solid rgba(255,255,255,0.1); }
-        .hand-container { display: flex; overflow-x: auto; gap: -5px; padding: 5px 0; width: 100%; height: 90px; justify-content: center; align-items: center; }
-        .my-card { width: 55px; height: 85px; border-radius: 8px; border: 2px solid #fff; flex-shrink: 0; margin-right: 4px; cursor: pointer; transition: transform 0.2s; position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; font-weight: bold; text-shadow: 0 1px 2px #000; font-size: 1.2rem; }
-        .my-card.selected { transform: translateY(-15px) scale(1.05); border-color: var(--accent); z-index: 10; box-shadow: 0 0 15px var(--accent); }
-        .my-card.disabled { opacity: 0.4; filter: grayscale(0.8); pointer-events: none; }
-
-        .collection-area { display: flex; gap: 8px; justify-content: center; margin-top: 5px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 8px; }
-        .collected-item { display: flex; flex-direction: column; align-items: center; position: relative; width: 30px; }
-        .collected-icon { width: 24px; height: 32px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5); opacity: 0.3; transition: 0.3s; }
-        .collected-icon.active { opacity: 1; border: 1px solid #fff; box-shadow: 0 0 5px currentColor; }
-        .collected-count { font-size: 0.8rem; font-weight: bold; margin-top: 2px; color: #ccc; }
-        .collected-count.active { color: var(--accent); }
-
-        .info-msg { text-align: center; font-size: 0.9rem; color: #aaa; margin: 5px 0; min-height: 20px; }
-        .round-result { color: var(--accent); font-weight: bold; animation: pop 0.3s; }
-        @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        .player-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 5px 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 5px; box-sizing: border-box; }
-        .player-name { font-weight: bold; font-size: 0.95rem; }
+        * { box-sizing: border-box; font-family: 'Pretendard', 'Malgun Gothic', sans-serif; }
+        body { background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        h1 { color: #333; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+        button { width: 100%; padding: 12px; margin: 5px 0; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background-color: #ff6b6b; color: white; }
+        .btn-primary:hover { background-color: #ff5252; }
+        .btn-secondary { background-color: #4ecdc4; color: white; }
+        .btn-secondary:hover { background-color: #45b7d1; }
+        .screen { display: none; }
+        .active { display: block; }
+        ul { list-style: none; padding: 0; text-align: left; }
+        li { background: #eee; margin: 5px 0; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; }
+        .status-ready { color: #ff6b6b; font-weight: bold; }
+        .role-box { padding: 20px; border-radius: 8px; margin: 20px 0; font-size: 24px; font-weight: bold; }
+        .role-liar { background: #333; color: red; }
+        .role-citizen { background: #e9ecef; color: #333; }
+        #room-id-display { font-size: 24px; letter-spacing: 2px; color: #ff6b6b; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="authScreen" class="screen active" style="justify-content: center;">
-        <div class="card-box">
-            <h1 style="color:var(--accent); text-shadow: 0 0 10px var(--accent);">ORBITA</h1>
-            <p>행성 궤도 전략 게임</p>
-            <input type="text" id="nick" placeholder="닉네임" style="width:90%; padding:10px; margin:5px; background:#222; border:1px solid #444; color:#fff; border-radius:5px;">
-            <input type="email" id="email" placeholder="이메일" style="width:90%; padding:10px; margin:5px; background:#222; border:1px solid #444; color:#fff; border-radius:5px;">
-            <input type="password" id="pw" placeholder="비밀번호" style="width:90%; padding:10px; margin:5px; background:#222; border:1px solid #444; color:#fff; border-radius:5px;">
-            <button class="btn" onclick="authFunc('login')">입장하기</button>
-            <button class="btn" onclick="authFunc('signup')" style="background:#444; color:#fff;">회원가입</button>
-        </div>
+<div class="container">
+    <!-- 화면 1: 닉네임 설정 및 방 선택 -->
+    <div id="screen-intro" class="screen active">
+        <h1>🍕 음식 라이어 게임</h1>
+        <p>서버 없이 즐기는 눈치 게임!</p>
+        <input type="text" id="nickname" placeholder="내 닉네임 입력">
+        <button class="btn-primary" onclick="createRoom()">방 만들기 (방장)</button>
+        <button class="btn-secondary" onclick="showJoinScreen()">방 참여하기 (팀원)</button>
     </div>
 
-    <div id="lobbyScreen" class="screen" style="justify-content: center;">
-        <div class="card-box">
-            <h2>대기실</h2>
-            <p><span id="myNickDisplay" style="color:var(--accent)"></span>님 환영합니다!</p>
-            <button class="btn" onclick="startAI()">🤖 AI와 연습하기</button>
-            <button class="btn" onclick="findMatch()" style="background:linear-gradient(45deg, #ff416c, #ff4b2b); color:#fff;">⚔️ 사람과 대결하기</button>
-            <button class="btn btn-sub" onclick="firebase.auth().signOut()">로그아웃</button>
-        </div>
+    <!-- 화면 2: 방 참여하기 폼 -->
+    <div id="screen-join" class="screen">
+        <h1>방 참여하기</h1>
+        <input type="text" id="room-code-input" placeholder="방장이 알려준 코드 입력">
+        <button class="btn-secondary" onclick="joinRoom()">입장하기</button>
+        <button onclick="showScreen('screen-intro')">뒤로 가기</button>
     </div>
 
-    <div id="waitScreen" class="screen" style="justify-content: center;">
-        <div class="card-box">
-            <h2>매칭 중...</h2>
-            <div style="font-size:3rem; margin:20px;">🔭</div>
-            <p>상대를 찾고 있습니다.</p>
-            <button class="btn btn-sub" onclick="cancelMatch()">취소</button>
-        </div>
-    </div>
-
-    <div id="gameScreen" class="screen">
-        <div class="player-bar">
-            <span id="oppName" class="player-name">상대방</span>
-            <span id="oppHandCnt" style="font-size:0.8rem; color:#aaa;">카드 14장</span>
-        </div>
-        <div class="collection-area" id="oppCollection"></div>
-
-        <div class="track-container" id="track"></div>
+    <!-- 화면 3: 로비 (음식 입력 및 대기) -->
+    <div id="screen-lobby" class="screen">
+        <h2>대기실</h2>
+        <p id="room-code-container" style="display:none;">방 코드: <span id="room-id-display"></span></p>
         
-        <div id="gameMsg" class="info-msg">게임 시작!</div>
+        <input type="text" id="food-input" placeholder="생각나는 음식 하나 적기!">
+        <button class="btn-secondary" onclick="submitFood()">제출완료</button>
 
-        <div class="hand-area">
-            <div class="player-bar" style="background:transparent; padding:0; margin-bottom:5px;">
-                <span id="myName" class="player-name" style="color:var(--accent)">나</span>
-                <button id="playBtn" class="btn" onclick="playCards()" style="width:auto; padding:5px 15px; margin:0; font-size:0.9rem;" disabled>선택 완료</button>
-            </div>
-            <div class="collection-area" id="myCollection" style="background:rgba(255,255,255,0.05); margin-bottom:10px;"></div>
-            <div class="hand-container" id="myHand"></div>
-        </div>
+        <h3>참가자 목록</h3>
+        <ul id="player-list"></ul>
         
-        <button class="btn btn-sub" onclick="quitGame()" style="margin-top:5px; width:50px; padding:5px; font-size:0.7rem; position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.5);">나가기</button>
+        <button id="btn-start" class="btn-primary" style="display:none;" onclick="startGame()">게임 시작 (방장 전용)</button>
     </div>
 
-    <script>
-        const firebaseConfig = { apiKey: "AIzaSyBZZuQHXYsbbJA3L1L8-yFSfbw1w15p3NE", authDomain: "rubigs.firebaseapp.com", databaseURL: "https://rubigs-default-rtdb.firebaseio.com", projectId: "rubigs", appId: "1:175818594996:web:2ec5f57abe5f5a20d3d5e1" };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth(), db = firebase.database();
+    <!-- 화면 4: 게임 결과 (라이어 / 시민 확인) -->
+    <div id="screen-game" class="screen">
+        <h2>게임 결과</h2>
+        <div id="role-display" class="role-box"></div>
+        <button onclick="resetLobby()">다시 대기실로</button>
+    </div>
+</div>
 
-        let myUid = "", myNick = "";
-        let battleId = null, myRole = "", isOnline = false;
-        let gameState = null;
-        let selectedIndices = [];
+<script>
+    let peer;
+    let conn;
+    let isHost = false;
+    let myName = "";
+    let myId = "";
+    
+    // 방장 전용 데이터 관리
+    let connections = [];
+    let players = []; // { id, name, food }
 
-        const COLORS = ['c-red', 'c-blue', 'c-green', 'c-purple'];
-        const PLANET_NAMES = ['🔴', '🔵', '🟢', '🟣'];
+    function getNickname() {
+        const name = document.getElementById('nickname').value.trim();
+        if (!name) { alert("닉네임을 입력해주세요!"); return null; }
+        return name;
+    }
 
-        auth.onAuthStateChanged(u => {
-            if(u) { myUid = u.uid; db.ref(`users/${u.uid}`).once('value', s => { myNick = s.val()?.nickname || "Player"; document.getElementById('myNickDisplay').innerText = myNick; show('lobbyScreen'); }); }
-            else show('authScreen');
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    function showJoinScreen() {
+        if (getNickname()) showScreen('screen-join');
+    }
+
+    // 1. 방장: 방 만들기
+    function createRoom() {
+        myName = getNickname();
+        if (!myName) return;
+
+        peer = new Peer(); // 랜덤 ID 생성
+        peer.on('open', (id) => {
+            myId = id;
+            isHost = true;
+            players.push({ id: myId, name: myName, food: "" });
+            
+            document.getElementById('room-id-display').innerText = id;
+            document.getElementById('room-code-container').style.display = 'block';
+            document.getElementById('btn-start').style.display = 'block';
+            
+            updatePlayerListUI();
+            showScreen('screen-lobby');
         });
-        function authFunc(type) {
-            const e=document.getElementById('email').value, p=document.getElementById('pw').value, n=document.getElementById('nick').value;
-            if(type==='signup') auth.createUserWithEmailAndPassword(e,p).then(r=>db.ref(`users/${r.user.uid}`).set({nickname:n}));
-            else auth.signInWithEmailAndPassword(e,p).catch(e=>alert(e.message));
+
+        peer.on('connection', (connection) => {
+            connections.push(connection);
+            connection.on('data', (data) => handleClientData(connection.peer, data));
+        });
+    }
+
+    // 2. 팀원: 방 참여하기
+    function joinRoom() {
+        myName = getNickname();
+        const roomCode = document.getElementById('room-code-input').value.trim();
+        if (!myName || !roomCode) return;
+
+        peer = new Peer();
+        peer.on('open', (id) => {
+            myId = id;
+            conn = peer.connect(roomCode);
+            conn.on('open', () => {
+                conn.send({ type: 'JOIN', name: myName });
+                showScreen('screen-lobby');
+            });
+            conn.on('data', (data) => handleHostData(data));
+        });
+    }
+
+    // [방장] 클라이언트로부터 데이터 받기
+    function handleClientData(peerId, data) {
+        if (data.type === 'JOIN') {
+            players.push({ id: peerId, name: data.name, food: "" });
+            broadcastSync();
+        } else if (data.type === 'FOOD') {
+            const player = players.find(p => p.id === peerId);
+            if (player) player.food = data.value;
+            broadcastSync();
+        }
+    }
+
+    // [팀원] 방장으로부터 데이터 받기
+    function handleHostData(data) {
+        if (data.type === 'SYNC') {
+            players = data.players;
+            updatePlayerListUI();
+        } else if (data.type === 'START') {
+            showGameResult(data.role, data.word);
+        }
+    }
+
+    // [방장] 현재 상태를 모든 팀원에게 전송
+    function broadcastSync() {
+        updatePlayerListUI();
+        connections.forEach(c => c.send({ type: 'SYNC', players: players }));
+    }
+
+    // 3. 음식 제출
+    function submitFood() {
+        const foodValue = document.getElementById('food-input').value.trim();
+        if (!foodValue) { alert("음식을 입력해주세요!"); return; }
+
+        if (isHost) {
+            const player = players.find(p => p.id === myId);
+            if (player) player.food = foodValue;
+            broadcastSync();
+        } else {
+            conn.send({ type: 'FOOD', value: foodValue });
+        }
+        alert("음식이 제출되었습니다. 다른 사람들을 기다려주세요.");
+    }
+
+    // 4. UI: 참가자 목록 업데이트
+    function updatePlayerListUI() {
+        const list = document.getElementById('player-list');
+        list.innerHTML = "";
+        players.forEach(p => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${p.name}</span> <span class="status-ready">${p.food ? '제출 완료 🍔' : '고민 중... 🤔'}</span>`;
+            list.appendChild(li);
+        });
+    }
+
+    // 5. [방장] 게임 시작 및 라이어 선정 로직
+    function startGame() {
+        const submittedFoods = players.map(p => p.food).filter(f => f !== "");
+        if (submittedFoods.length < players.length) {
+            alert("아직 모든 사람이 음식을 제출하지 않았습니다!");
+            return;
+        }
+        if (players.length < 2) {
+            alert("최소 2명 이상이어야 게임이 가능합니다.");
+            return;
         }
 
-        function startAI() {
-            isOnline = false; battleId = "local_ai"; myRole = 'p1';
-            const initDeck = shuffleDeck();
-            gameState = {
-                p1: { name: myNick, hand: initDeck.slice(0,14), collected: [0,0,0,0] },
-                p2: { name: "AI 봇", hand: initDeck.slice(14,28), collected: [0,0,0,0] },
-                planets: [0,0,0,0], turn: 'p1', roundStartPlayer: 'p1', roundState: 'waiting_p1',
-                currentRoundCards: { p1: null, p2: null }, lastRoundResult: null, winner: null
+        // 제출된 음식 중 하나를 무작위로 제시어로 선택
+        const targetFood = submittedFoods[Math.floor(Math.random() * submittedFoods.length)];
+        
+        // 무작위로 1명을 라이어로 선택
+        const liarIndex = Math.floor(Math.random() * players.length);
+        const liarId = players[liarIndex].id;
+
+        // 각 플레이어에게 결과 전송
+        players.forEach(p => {
+            const isLiar = (p.id === liarId);
+            const roleData = {
+                type: 'START',
+                role: isLiar ? 'liar' : 'citizen',
+                word: isLiar ? '???' : targetFood
             };
-            show('gameScreen'); renderTrack(); updateView();
-        }
 
-        function findMatch() {
-            isOnline = true; show('waitScreen');
-            const qRef = db.ref('orbita_real_queue');
-            qRef.transaction(c => c===null ? {uid:myUid, name:myNick, mid:null} : c, (e, comm, s) => {
-                if(comm && s.val().uid === myUid) {
-                    const l = qRef.on('value', snap => {
-                        if(snap.val()?.mid) { qRef.off(); qRef.set(null); joinGame(snap.val().mid, 'p1'); }
-                    });
-                } else if(s.val().uid !== myUid) {
-                    const opp = s.val(); const mid = db.ref('orbita_real_battles').push().key;
-                    const deck = shuffleDeck();
-                    db.ref(`orbita_real_battles/${mid}`).set({
-                        p1: { uid:opp.uid, name:opp.name, hand: deck.slice(0,14), collected: [0,0,0,0] },
-                        p2: { uid:myUid, name:myNick, hand: deck.slice(14,28), collected: [0,0,0,0] },
-                        planets: [0,0,0,0], turn: 'p1', roundStartPlayer: 'p1', roundState: 'waiting_p1',
-                        currentRoundCards: { p1: null, p2: null }, lastRoundResult: null, winner: null
-                    }).then(() => qRef.update({mid: mid}).then(() => joinGame(mid, 'p2')));
-                }
-            });
-        }
-
-        function joinGame(mid, role) {
-            battleId = mid; myRole = role; show('gameScreen'); renderTrack();
-            db.ref(`orbita_real_battles/${mid}`).on('value', s => {
-                gameState = s.val(); if(!gameState) return;
-                if(gameState.winner) endGame(gameState.winner, gameState.winReason);
-                else updateView();
-            });
-        }
-        function cancelMatch() { db.ref('orbita_real_queue').transaction(c=>(c?.uid===myUid?null:c)); show('lobbyScreen'); }
-
-        function updateView() {
-            const me = gameState[myRole];
-            const oppRole = myRole==='p1'?'p2':'p1';
-            const opp = gameState[oppRole];
-
-            document.getElementById('myName').innerText = `나 (${me.name})`;
-            document.getElementById('oppName').innerText = opp.name;
-            document.getElementById('oppHandCnt').innerText = `카드 ${opp.hand ? opp.hand.length : 0}장`;
-            
-            renderCollection('myCollection', me.collected);
-            renderCollection('oppCollection', opp.collected);
-            renderPlanets(gameState.planets);
-            renderHand(me.hand || []);
-
-            const msg = document.getElementById('gameMsg');
-            const btn = document.getElementById('playBtn');
-            
-            if(gameState.lastRoundResult) {
-                const lr = gameState.lastRoundResult;
-                const winnerName = lr.winner === myRole ? "나" : (isOnline ? opp.name : "AI");
-                msg.innerHTML = `<span class="round-result">${winnerName} 승리! ${PLANET_NAMES[lr.type]}카드 ${lr.count}장 획득</span>`;
-            } else {
-                msg.innerText = "게임을 시작합니다.";
-                msg.className = "info-msg";
+            if (p.id === myId) { // 방장 본인
+                showGameResult(roleData.role, roleData.word);
+            } else { // 팀원들
+                const clientConn = connections.find(c => c.peer === p.id);
+                if (clientConn) clientConn.send(roleData);
             }
+        });
+    }
 
-            if (gameState.roundState === `waiting_${myRole}`) {
-                if (checkIfStuck(me.hand)) {
-                    triggerNoMoveEnd();
-                    btn.disabled = true; btn.innerText = "낼 카드가 없어 종료합니다...";
-                } else {
-                    btn.disabled = false; btn.innerText = "선택 완료"; btn.style.background = "var(--accent)";
-                }
-            } else if (gameState.roundState === `waiting_${oppRole}`) {
-                btn.disabled = true; btn.innerText = "대기 중"; btn.style.background = "#555";
-                if(!isOnline && oppRole === 'p2') setTimeout(aiTurn, 1000); 
-            } else {
-                msg.innerText = "결과 계산 중..."; btn.disabled = true;
-            }
+    // 6. 결과 화면 표시
+    function showGameResult(role, word) {
+        const display = document.getElementById('role-display');
+        display.className = 'role-box ' + (role === 'liar' ? 'role-liar' : 'role-citizen');
+        
+        if (role === 'liar') {
+            display.innerHTML = "당신은 <span style='color:red;'>라이어</span>입니다!<br><span style='font-size:16px; font-weight:normal; color:#ddd;'>다른 사람들의 설명을 듣고 눈치껏 정답을 맞히세요.</span>";
+        } else {
+            display.innerHTML = `제시어: <br><span style='color:#ff6b6b; font-size:36px;'>${word}</span><br><span style='font-size:16px; font-weight:normal; color:#666;'>라이어에게 들키지 않게 설명하세요.</span>`;
         }
+        showScreen('screen-game');
+    }
 
-        function checkIfStuck(hand) {
-            if (!hand || hand.length === 0) return true;
-            if (gameState.roundStartPlayer === myRole) return false;
-            const oppRole = myRole==='p1'?'p2':'p1';
-            const oppCard = (gameState.currentRoundCards && gameState.currentRoundCards[oppRole]) ? gameState.currentRoundCards[oppRole] : null;
-            if (!oppCard) return false;
-            for (let i=0; i<hand.length; i++) if (hand[i] !== oppCard.type) return false;
-            return true;
+    // 7. 대기실로 돌아가기
+    function resetLobby() {
+        document.getElementById('food-input').value = "";
+        if (isHost) {
+            players.forEach(p => p.food = "");
+            broadcastSync();
         }
+        showScreen('screen-lobby');
+    }
+</script>
 
-        function triggerNoMoveEnd() {
-            if(isOnline) {
-                if(gameState.roundState === 'resolving' || gameState.winner) return;
-                const winner = calculateFinalWinner(gameState);
-                db.ref(`orbita_real_battles/${battleId}`).update({ winner: winner, winReason: 'stuck' });
-            } else {
-                 if(gameState.winner) return;
-                 const winner = calculateFinalWinner(gameState);
-                 endGame(winner, 'stuck');
-            }
-        }
-
-        function renderCollection(elemId, collected) {
-            const el = document.getElementById(elemId); el.innerHTML = '';
-            collected.forEach((cnt, idx) => {
-                const isActive = cnt > 0;
-                el.innerHTML += `<div class="collected-item"><div class="collected-icon ${COLORS[idx]} ${isActive?'active':''}"></div><div class="collected-count ${isActive?'active':''}">${cnt}</div></div>`;
-            });
-        }
-
-        function toggleSelect(idx, type, hand) {
-            if(selectedIndices.includes(idx)) { selectedIndices = []; updateSelectionVisuals(); return; }
-            let group = [idx];
-            let l = idx - 1; while(l >= 0 && hand[l] === type) { group.push(l); l--; }
-            let r = idx + 1; while(r < hand.length && hand[r] === type) { group.push(r); r++; }
-            group.sort((a,b)=>a-b);
-            
-            if(gameState.roundState === `waiting_${myRole}` && gameState.roundStartPlayer !== myRole) {
-                const oppRole = myRole==='p1'?'p2':'p1';
-                const oppCard = (gameState.currentRoundCards && gameState.currentRoundCards[oppRole]) ? gameState.currentRoundCards[oppRole] : null;
-                if(oppCard && oppCard.type === type) return alert("상대방이 낸 카드와 다른 종류여야 합니다!");
-            }
-
-            if (group.length <= 3) { selectedIndices = group; }
-            else {
-                if(selectedIndices.length === 0) selectedIndices = [idx];
-                else {
-                    if(selectedIndices.length >= 3) return; 
-                    if(hand[selectedIndices[0]] !== type) return; 
-                    const temp = [...selectedIndices, idx].sort((a,b)=>a-b);
-                    for(let i=0; i<temp.length-1; i++) if(temp[i+1] !== temp[i]+1) return alert("인접한 카드만 선택 가능합니다.");
-                    selectedIndices.push(idx);
-                }
-            }
-            updateSelectionVisuals();
-        }
-
-        function updateSelectionVisuals() {
-            document.querySelectorAll('.my-card').forEach(el => {
-                const i = parseInt(el.dataset.idx);
-                if (selectedIndices.includes(i)) el.classList.add('selected'); else el.classList.remove('selected');
-            });
-        }
-
-        // [무결점 전송 로직]
-        function playCards() {
-            try {
-                if(selectedIndices.length === 0) return alert("카드를 먼저 선택해주세요!");
-                const btn = document.getElementById('playBtn');
-                btn.disabled = true; btn.innerText = "처리 중...";
-
-                const hand = gameState[myRole].hand;
-                if(!hand) throw new Error("손패 데이터가 없습니다.");
-
-                const idx = selectedIndices[0];
-                if(idx < 0 || idx >= hand.length) throw new Error("잘못된 카드 선택입니다.");
-
-                const type = hand[idx];
-                const count = selectedIndices.length;
-                
-                // 데이터 무결성 체크
-                if(type === undefined || type === null) throw new Error("카드 종류를 확인할 수 없습니다.");
-
-                const newHand = hand.filter((_, i) => !selectedIndices.includes(i));
-                
-                if(isOnline) {
-                    let updates = {};
-                    let planets = [...gameState.planets];
-                    planets[type] = calcMove(planets, type, count);
-                    
-                    // 빈 배열은 null로 저장되어야 함 (Firebase 특성)
-                    updates[`${myRole}/hand`] = newHand.length > 0 ? newHand : null;
-                    updates[`currentRoundCards/${myRole}`] = { type, count };
-                    updates[`planets`] = planets;
-                    updates[`lastRoundResult`] = null; 
-                    
-                    const oppRole = myRole==='p1'?'p2':'p1';
-                    const oppCard = (gameState.currentRoundCards && gameState.currentRoundCards[oppRole]) ? gameState.currentRoundCards[oppRole] : null;
-
-                    if(oppCard) {
-                        updates['roundState'] = 'resolving';
-                        db.ref(`orbita_real_battles/${battleId}`).update(updates)
-                            .then(resolveRoundOnline)
-                            .catch(err => handleTxError(err, btn));
-                    } else {
-                        updates['roundState'] = `waiting_${oppRole}`;
-                        db.ref(`orbita_real_battles/${battleId}`).update(updates)
-                            .catch(err => handleTxError(err, btn));
-                    }
-                } else {
-                    // AI 모드
-                    gameState[myRole].hand = newHand;
-                    gameState.currentRoundCards[myRole] = { type, count };
-                    gameState.planets[type] = calcMove(gameState.planets, type, count);
-                    const oppRole = myRole==='p1'?'p2':'p1';
-                    const oppCard = (gameState.currentRoundCards && gameState.currentRoundCards[oppRole]) ? gameState.currentRoundCards[oppRole] : null;
-                    if(oppCard) {
-                        gameState.roundState = 'resolving'; updateView(); setTimeout(resolveRoundLocal, 1000);
-                    } else {
-                        gameState.roundState = `waiting_${oppRole}`; updateView();
-                    }
-                }
-            } catch (e) {
-                alert("오류 발생: " + e.message);
-                const btn = document.getElementById('playBtn');
-                btn.disabled = false; btn.innerText = "선택 완료";
-            }
-        }
-
-        function handleTxError(err, btn) {
-            alert("전송 실패: " + err.message + "\n(권한 문제라면 Firebase Rules를 확인해주세요)");
-            btn.disabled = false; btn.innerText = "선택 완료";
-        }
-
-        function aiTurn() {
-            const aiHand = gameState.p2.hand;
-            const p1Card = (gameState.currentRoundCards && gameState.currentRoundCards.p1) ? gameState.currentRoundCards.p1 : null;
-            let validMoves = []; let groups = []; let currentGroup = [];
-            for(let i=0; i<aiHand.length; i++) {
-                if(currentGroup.length === 0 || aiHand[i] === aiHand[i-1]) currentGroup.push(i);
-                else { groups.push([...currentGroup]); currentGroup = [i]; }
-            }
-            if(currentGroup.length > 0) groups.push(currentGroup);
-            groups.forEach(grp => {
-                const type = aiHand[grp[0]];
-                if(p1Card && p1Card.type === type) return;
-                if(grp.length <= 3) validMoves.push(grp);
-                else { validMoves.push([grp[0]]); validMoves.push([grp[0], grp[1]]); validMoves.push([grp[0], grp[1], grp[2]]); }
-            });
-            if(validMoves.length === 0) { endGame(calculateFinalWinner(gameState), 'normal'); return; }
-            const pick = validMoves[Math.floor(Math.random() * validMoves.length)];
-            const type = aiHand[pick[0]];
-            const count = pick.length;
-            const newHand = aiHand.filter((_, idx) => !pick.includes(idx));
-            gameState.p2.hand = newHand;
-            gameState.currentRoundCards.p2 = { type, count };
-            gameState.planets[type] = calcMove(gameState.planets, type, count);
-            gameState.roundState = 'resolving';
-            updateView(); setTimeout(resolveRoundLocal, 1000);
-        }
-
-        function resolveRoundOnline() { setTimeout(() => { db.ref(`orbita_real_battles/${battleId}`).transaction(g => (g && g.roundState === 'resolving') ? applyRoundResult(g) : undefined); }, 1000); }
-        function resolveRoundLocal() { gameState = applyRoundResult(gameState); if(gameState.winner) endGame(gameState.winner, gameState.winReason); else updateView(); }
-        function applyRoundResult(g) {
-            const c1 = g.currentRoundCards.p1, c2 = g.currentRoundCards.p2;
-            const p1Pos = g.planets[c1.type], p2Pos = g.planets[c2.type];
-            let winner = g.roundStartPlayer;
-            if(p1Pos > p2Pos) winner = 'p1'; else if(p2Pos > p1Pos) winner = 'p2';
-            g[winner].collected[c1.type] += c1.count; g[winner].collected[c2.type] += c2.count;
-            g.lastRoundResult = { winner: winner, type: c1.count > c2.count ? c1.type : c2.type, count: c1.count + c2.count };
-            g.currentRoundCards = {p1:null, p2:null}; g.roundStartPlayer = winner;
-            if((!g.p1.hand || g.p1.hand.length===0) || (!g.p2.hand || g.p2.hand.length===0)) { g.winner = calculateFinalWinner(g); g.winReason = 'normal'; }
-            else { g.roundState = `waiting_${winner}`; }
-            return g;
-        }
-        function calcMove(planets, type, count) {
-            let pos = planets[type]; let moves = count;
-            while(moves > 0) { pos = pos >= 14 ? 1 : pos + 1; let occupied = false; for(let i=0; i<4; i++) if(i!==type && planets[i]===pos) occupied = true; if(!occupied) moves--; }
-            return pos;
-        }
-        function calculateFinalWinner(g) {
-            let p1Pen = 0, p2Pen = 0;
-            for(let i=0; i<4; i++) {
-                const c1 = g.p1.collected[i], c2 = g.p2.collected[i];
-                if(c1 < c2) p1Pen += c1; else if(c2 < c1) p2Pen += c2;
-            }
-            if(p1Pen < p2Pen) return 'p1'; if(p2Pen < p1Pen) return 'p2';
-            const t1 = g.p1.collected.reduce((a,b)=>a+b,0), t2 = g.p2.collected.reduce((a,b)=>a+b,0);
-            return t1 > t2 ? 'p1' : (t2 > t1 ? 'p2' : 'draw');
-        }
-        function renderTrack() {
-            const t = document.getElementById('track'); t.innerHTML = '';
-            for(let i=1; i<=14; i++) {
-                const n = Math.ceil(i/2), p = i%2===0;
-                t.innerHTML += `<div class="track-cell ${p?'plus':''}" id="track-${i}"><span style="opacity:0.5">${n}${p?'+':''}</span><div class="tk-area" style="display:flex; justify-content:center;"></div></div>`;
-            }
-        }
-        function renderPlanets(pos) {
-            document.querySelectorAll('.planet-token').forEach(e=>e.remove());
-            pos.forEach((p,i) => { if(p>0) document.querySelector(`#track-${p} .tk-area`)?.appendChild(Object.assign(document.createElement('div'),{className:`planet-token ${COLORS[i]}`})); });
-        }
-        function renderHand(hand) {
-            const c = document.getElementById('myHand'); c.innerHTML = ''; selectedIndices = [];
-            hand.forEach((t,i) => {
-                const d = document.createElement('div'); d.className = `my-card ${COLORS[t]}`; d.innerText = PLANET_NAMES[t]; d.dataset.idx = i;
-                if(gameState.roundState === `waiting_${myRole}`) d.onclick = () => toggleSelect(i, t, hand);
-                else d.classList.add('disabled');
-                c.appendChild(d);
-            });
-        }
-        function shuffleDeck() {
-            let d = []; for(let i=0; i<4; i++) for(let j=0; j<7; j++) d.push(i);
-            for(let i=d.length-1; i>0; i--) { const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
-            return d;
-        }
-        function quitGame() {
-            if(!confirm("나가시겠습니까?")) return;
-            if(isOnline) db.ref(`orbita_real_battles/${battleId}`).update({winner:myRole==='p1'?'p2':'p1', winReason:'quit'});
-            else show('lobbyScreen');
-        }
-        function endGame(w, r) { 
-            let msg = w==='draw'?"무승부!":(w===myRole?"승리! 🎉":"패배...");
-            if(r === 'stuck') msg += "\n(더 이상 낼 카드가 없어 종료)";
-            alert(msg); show('lobbyScreen'); if(isOnline) db.ref(`orbita_real_battles/${battleId}`).off(); 
-        }
-        function show(id){ document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active')); document.getElementById(id).classList.add('active'); }
-    </script>
 </body>
 </html>
